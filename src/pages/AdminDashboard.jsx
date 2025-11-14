@@ -27,35 +27,35 @@ export default function AdminDashboard() {
 
 
   // Function to handle viewing today's report
-  const handleViewReport = async () => {
-    if (!selectedDate) {
-    alert("Please select a date first.");
-    return;
-  }
+//   const handleViewReport = async () => {
+//     if (!selectedDate) {
+//     alert("Please select a date first.");
+//     return;
+//   }
 
-  try {
-    const response = await fetch(`${BACKEND_BASE_URL}/admin/reports/daily?submittedDate=${selectedDate}`,
-      {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("neb_token")}`
-      },
-    }
-  );
+//   try {
+//     const response = await fetch(`${BACKEND_BASE_URL}/admin/reports/daily?submittedDate=${selectedDate}`,
+//       {
+//       method: "GET",
+//       headers: {
+//         Authorization: `Bearer ${localStorage.getItem("neb_token")}`
+//       },
+//     }
+//   );
 
-  if (!response.ok) throw new Error("Failed to fetch report");
+//   if (!response.ok) throw new Error("Failed to fetch report");
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+//     const blob = await response.blob();
+//     const url = window.URL.createObjectURL(blob);
 
-    // Open PDF in new tab
-    window.open(url, "_blank");
+//     // Open PDF in new tab
+//     window.open(url, "_blank");
 
-  } catch (err) {
-    console.error("Error fetching daily report:",err);
-    alert("Failed to load daily report");
-  }
-};
+//   } catch (err) {
+//     console.error("Error fetching daily report:",err);
+//     alert("Failed to load daily report");
+//   }
+// };
 
   useEffect(() => {
     // Prefer admin passed via location.state (after login). Fallback to localStorage.
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
       </button>
 
       <button
-        onClick= {handleViewReport}
+        onClick= {() => navigate('/admin/view-report')}
         className="flex items-center gap-2 w-full text-left px-4 py-2 hover:bg-sky-100 rounded"
       >
         <FileText size={18} className="text-blue-700" />
