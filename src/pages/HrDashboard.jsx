@@ -7,16 +7,12 @@ import JobList from "../components/hr/JobList";
 import EmployeeList from "../components/hr/EmployeeList";
 import { Menu, UserPlus, Briefcase, FileText, LogOut } from "lucide-react";
 
-
-
 export default function HrDashboard() {
   const navigate = useNavigate();
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  
-
 
   function triggerRefresh() {
     setRefreshKey((k) => k + 1);
@@ -100,14 +96,7 @@ export default function HrDashboard() {
           </button>
 
         </div>
-      )}
-    </div>
-  </div>
-</div>
-
-
-
-
+      </div>
 
       {/* Employee List Section */}
       <div className="bg-green-50 rounded-lg p-6 shadow">
