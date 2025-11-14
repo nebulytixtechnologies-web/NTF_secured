@@ -81,11 +81,9 @@ export default function HrDashboard() {
   Add Job
 </button>
 
-
-
           {/* View Report */}
           <button
-            onClick={() => navigate('/hr/view-report')}
+            onClick={() => navigate('/admin/view-report')}
             className="flex items-center gap-2 w-full px-4 py-2 text-left hover:bg-sky-50 rounded"
           >
             <FileText size={18} className="text-blue-700" />
