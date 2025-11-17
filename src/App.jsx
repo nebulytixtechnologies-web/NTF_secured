@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobDetails from "./pages/JobDetails";
 import ViewReport from "./pages/ViewReport";
+import JobApplications from "./pages/JobApplications";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/employee" element={<EmployeeDashboard />} />
       <Route path="/admin/view-report" element={<ViewReport />} />
+      <Route path="/hr/job/:id/applications" element={<JobApplications />} />
     </Routes>
   );
 }
