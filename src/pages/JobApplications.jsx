@@ -2,7 +2,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { BACKEND_BASE_URL } from "../api/config";
+import { BACKEND_BASE_URL, BASE_URL } from "../api/config";
+// BACKEND_BASE_URL -> your API root, e.g. "http://192.168.1.103:5054/api"
+// BASE_URL -> server root for static files, e.g. "http://192.168.1.103:5054"
 
 export default function JobApplications() {
   const { id: jobId } = useParams();
@@ -13,7 +15,7 @@ export default function JobApplications() {
 
   // Modal state
   const [selectedApp, setSelectedApp] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null); // { app, action } or null
+  const [confirmAction, setConfirmAction] = useState(null);
   const [updatingAppId, setUpdatingAppId] = useState(null);
 
   useEffect(() => {
@@ -41,6 +43,39 @@ export default function JobApplications() {
     return () => (mounted = false);
   }, [jobId]);
 
+  // ---------- Helpers for URLs & download ----------
+  function resolveBackendUrl(pathOrUrl) {
+    if (!pathOrUrl) return "";
+    if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+      return pathOrUrl;
+    }
+    const p = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+    return `${BASE_URL}${p}`; // use BASE_URL for static files
+  }
+
+  async function downloadFileFromBackend(pathOrUrl, filename) {
+    const url = resolveBackendUrl(pathOrUrl);
+    try {
+      // fetch as blob so download works cross-origin
+      const res = await fetch(url, { mode: "cors" });
+      if (!res.ok) throw new Error(`Network error: ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename || "file";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download failed", err);
+      alert(
+        "Could not download file. See console for details (check console)."
+      );
+    }
+  }
+
   // Helper: update one application locally (optimistic UI)
   function updateApplicationLocally(appId, patch) {
     setApplications((prev) =>
@@ -50,29 +85,22 @@ export default function JobApplications() {
 
   // Confirmed action handler (select or reject)
   async function performStatusChange(app, status) {
-    // status expected: "SELECTED" or "REJECTED" (adjust to your backend's enum)
     setConfirmAction(null);
     setUpdatingAppId(app.id);
-
     const previous = applications.find((a) => String(a.id) === String(app.id));
-    // optimistic update
     updateApplicationLocally(app.id, { status });
 
     try {
-      // ======= ADJUST THIS ENDPOINT IF YOUR BACKEND DIFFERS =======
-      // I assume PATCH on an HR endpoint like: /hr/application/{appId}/status
-      // with body: { status: 'SELECTED' }
-      // If your backend uses another path, replace it below.
-      await axios.patch(`${BACKEND_BASE_URL}/hr/application/${app.id}/status`, {
-        status,
-      });
-
-      // If backend returns updated object, you could merge it:
-      // const updated = res.data?.data;
-      // updateApplicationLocally(app.id, updated);
+      await axios.patch(
+        `${BACKEND_BASE_URL.replace(/\/$/, "")}/hr/application/${
+          app.id
+        }/status`,
+        {
+          status,
+        }
+      );
     } catch (err) {
       console.error("Status update failed:", err);
-      // rollback optimistic update
       updateApplicationLocally(app.id, { status: previous?.status });
       alert("Could not update application status. See console for details.");
     } finally {
@@ -131,17 +159,14 @@ export default function JobApplications() {
               key={app.id}
               app={app}
               onViewDetails={() => setSelectedApp(app)}
-              onViewResume={() => window.open(app.resumeUrl, "_blank")}
+              onViewResume={() =>
+                window.open(resolveBackendUrl(app.resumeUrl), "_blank")
+              }
               onDownloadResume={() => {
-                // Open resume URL in same tab with download attr: create anchor
-                const link = document.createElement("a");
-                link.href = app.resumeUrl;
-                // try to infer filename from URL
-                const filename = `resume_${app.fullName ?? app.id}.pdf`;
-                link.setAttribute("download", filename);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
+                const filename = `resume_${(app.fullName || app.id)
+                  .toString()
+                  .replace(/\s+/g, "_")}.pdf`;
+                downloadFileFromBackend(app.resumeUrl, filename);
               }}
               onShortlist={() => setConfirmAction({ app, action: "SELECTED" })}
               onReject={() => setConfirmAction({ app, action: "REJECTED" })}
@@ -151,12 +176,10 @@ export default function JobApplications() {
         </div>
       )}
 
-      {/* Details modal */}
       {selectedApp && (
         <DetailsModal app={selectedApp} onClose={() => setSelectedApp(null)} />
       )}
 
-      {/* Confirm modal for shortlist/reject */}
       {confirmAction && (
         <ConfirmModal
           app={confirmAction.app}
@@ -171,7 +194,7 @@ export default function JobApplications() {
   );
 }
 
-/* ---------- ApplicationRow component ---------- */
+/* ---------- ApplicationRow component (unchanged) ---------- */
 function ApplicationRow({
   app,
   onViewDetails,
@@ -242,6 +265,12 @@ function ApplicationRow({
 
 /* ---------- DetailsModal component ---------- */
 function DetailsModal({ app, onClose }) {
+  function resolveBackendUrlLocal(p) {
+    if (!p) return "";
+    if (p.startsWith("http://") || p.startsWith("https://")) return p;
+    return `${BASE_URL}${p.startsWith("/") ? p : `/${p}`}`;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -266,7 +295,6 @@ function DetailsModal({ app, onClose }) {
         <div className="mt-4">
           <h3 className="font-semibold">Application details</h3>
           <div className="mt-2 text-gray-700">
-            {/* You may have extra fields in DTO; render safely */}
             <p>
               <strong>Status:</strong> {app.status ?? "N/A"}
             </p>
@@ -275,7 +303,7 @@ function DetailsModal({ app, onClose }) {
               {app.resumeUrl ? (
                 <a
                   className="text-indigo-600"
-                  href={app.resumeUrl}
+                  href={resolveBackendUrlLocal(app.resumeUrl)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -285,7 +313,6 @@ function DetailsModal({ app, onClose }) {
                 "N/A"
               )}
             </p>
-            {/* add more fields here if available */}
           </div>
         </div>
       </div>
@@ -306,7 +333,6 @@ function ConfirmModal({ app, action, onCancel, onConfirm }) {
           Are you sure you want to <strong>{verb.toLowerCase()}</strong> the
           application from <strong>{app.fullName}</strong>?
         </p>
-
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onCancel} className="px-3 py-1 bg-gray-100 rounded">
             Cancel
