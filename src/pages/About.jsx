@@ -1,5 +1,4 @@
 
-
 import React from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -10,7 +9,7 @@ const About = () => {
     <Navbar/>
     <main className="min-h-screen bg-gray-50 py-14 px-6">
       <div className="max-w-6xl mx-auto">
-
+        
         {/* Heading */}
         <h1 className="text-4xl md:text-5xl font-extrabold text-blue-700 mb-8">
           About Nebulytix

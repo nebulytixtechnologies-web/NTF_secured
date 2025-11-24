@@ -163,7 +163,7 @@ export default function Home() {
     <div className="grid grid-cols-2 md:grid-cols-6 gap-8 text-center">
       {[
         "JAVA", "REACT", "Node.js",
-     "Python",
+     "Python", "DotNet", "AWS",
         "Docker","MongoDB",
         "MySQL", "DATAANALYST"
       ].map((tech, i) => (
