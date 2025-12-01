@@ -3,7 +3,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BACKEND_BASE_URL, BASE_URL } from "../api/config";
-import { Mail, Eye } from "lucide-react";
+
+import JobApplicationsHeader from "../components/job-applications/JobApplicationsHeader";
+import ApplicationsTable from "../components/job-applications/ApplicationsTable";
+import ApplicantDrawer from "../components/job-applications/ApplicantDrawer";
+import ConfirmDialog from "../components/job-applications/ConfirmDialog";
+import EmailModal from "../components/job-applications/EmailModal";
 
 export default function JobApplications() {
   const { id: jobId } = useParams();
@@ -14,6 +19,7 @@ export default function JobApplications() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [selectedApp, setSelectedApp] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [updatingAppId, setUpdatingAppId] = useState(null);
@@ -23,21 +29,17 @@ export default function JobApplications() {
   const [searchValue, setSearchValue] = useState("");
   const [sortBy, setSortBy] = useState("NEWEST");
 
-  const mountedRef = useRef(true);
-  const searchTimer = useRef(null);
-
-  // email popup states
   const [openMailBox, setOpenMailBox] = useState(false);
-  const [mailType, setMailType] = useState(""); 
-  // "SHORTLISTED" | "REJECTED" for bulk
-  // "INVITED_SINGLE" | "TERMINATED_SINGLE" for individual
+  const [mailType, setMailType] = useState(""); // "SHORTLISTED" | "REJECTED" | "INVITED_SINGLE" | "TERMINATED_SINGLE"
   const [mailSubject, setMailSubject] = useState("");
   const [mailMessage, setMailMessage] = useState("");
   const [sendingMail, setSendingMail] = useState(false);
+  const [mailTargetApp, setMailTargetApp] = useState(null); // null => bulk, object => single
 
-  // for individual mail
-  const [mailTargetApp, setMailTargetApp] = useState(null); // null => bulk, object => single applicant
+  const mountedRef = useRef(true);
+  const searchTimer = useRef(null);
 
+  // ---------- DATA FETCH ----------
   useEffect(() => {
     mountedRef.current = true;
     setLoading(true);
@@ -69,6 +71,7 @@ export default function JobApplications() {
     };
   }, [jobId]);
 
+  // ---------- SEARCH DEBOUNCE ----------
   useEffect(() => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
@@ -78,6 +81,7 @@ export default function JobApplications() {
     return () => clearTimeout(searchTimer.current);
   }, [searchInput]);
 
+  // ---------- HELPERS ----------
   const resolveUrl = (p) => {
     if (!p) return "";
     if (/^https?:\/\//i.test(p)) return p;
@@ -104,6 +108,58 @@ export default function JobApplications() {
       console.error("Download failed", e);
       alert("Failed to download file.");
     }
+  };
+
+  const fmtDate = (d) => {
+    if (!d) return "-";
+    const dt = new Date(d);
+    return dt.toLocaleString();
+  };
+
+  const statusBadge = (status) => {
+    if (!status) {
+      return (
+        <span className="inline-flex px-2.5 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium">
+          Pending
+        </span>
+      );
+    }
+
+    const s = String(status).toUpperCase();
+
+    if (s.includes("INVITED"))
+      return (
+        <span className="inline-flex px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+          Invited
+        </span>
+      );
+
+    if (s.includes("TERMINATED"))
+      return (
+        <span className="inline-flex px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold">
+          Terminated
+        </span>
+      );
+
+    if (s.includes("SHORT"))
+      return (
+        <span className="inline-flex px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
+          Shortlisted
+        </span>
+      );
+
+    if (s.includes("REJECT"))
+      return (
+        <span className="inline-flex px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold">
+          Rejected
+        </span>
+      );
+
+    return (
+      <span className="inline-flex px-2.5 py-1 bg-gray-50 text-gray-700 rounded-full text-xs">
+        {status}
+      </span>
+    );
   };
 
   const updateLocal = (id, patch) => {
@@ -149,7 +205,7 @@ export default function JobApplications() {
     }
   };
 
-  // send mail function (bulk + individual)
+  // ---------- EMAIL SENDER ----------
   const sendMail = async () => {
     if (!mailSubject.trim() || !mailMessage.trim()) {
       alert("Subject and message are required.");
@@ -162,23 +218,20 @@ export default function JobApplications() {
       const body = { subject: mailSubject, message: mailMessage };
 
       if (mailTargetApp) {
-        // === Individual mail ===
+        // Individual mail
         if (mailType === "INVITED_SINGLE") {
-          // Invite: backend sets status = INVITED
           await axios.post(
             `${BACKEND_BASE_URL}/hr/job/sendInvitedEmail/${mailTargetApp.id}`,
             body
           );
           updateLocal(mailTargetApp.id, { status: "INVITED" });
         } else if (mailType === "TERMINATED_SINGLE") {
-          // Reject: backend sets status = TERMINATED
           await axios.post(
             `${BACKEND_BASE_URL}/hr/job/sendRejectedEmail/${mailTargetApp.id}`,
             body
           );
           updateLocal(mailTargetApp.id, { status: "TERMINATED" });
         } else {
-          // fallback: default to invited if somehow not set
           await axios.post(
             `${BACKEND_BASE_URL}/hr/job/sendInvitedEmail/${mailTargetApp.id}`,
             body
@@ -186,21 +239,17 @@ export default function JobApplications() {
           updateLocal(mailTargetApp.id, { status: "INVITED" });
         }
       } else {
-        // === Bulk mail ===
+        // Bulk mail
         if (mailType === "SHORTLISTED") {
           await axios.post(
             `${BACKEND_BASE_URL}/hr/job/sendShortlistedEmails`,
             body
           );
-          // backend may or may not update status for bulk; 
-          // we are not changing local status here
         } else if (mailType === "REJECTED") {
           await axios.post(
             `${BACKEND_BASE_URL}/hr/job/sendRejectedEmails`,
             body
           );
-          // bulk: backend currently not setting TERMINATED per applicant;
-          // they remain REJECTED in UI unless you later send individual mail.
         }
       }
 
@@ -218,58 +267,7 @@ export default function JobApplications() {
     }
   };
 
-  const fmtDate = (d) => {
-    if (!d) return "-";
-    const dt = new Date(d);
-    return dt.toLocaleString();
-  };
-
-  const statusBadge = (status) => {
-    if (!status) {
-      return (
-        <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded text-xs font-medium">
-          PENDING
-        </span>
-      );
-    }
-
-    const s = String(status).toUpperCase();
-
-    if (s.includes("INVITED"))
-      return (
-        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded font-semibold text-xs">
-          INVITED
-        </span>
-      );
-
-    if (s.includes("TERMINATED"))
-      return (
-        <span className="px-3 py-1 bg-red-100 text-red-700 rounded font-semibold text-xs">
-          TERMINATED
-        </span>
-      );
-
-    if (s.includes("SHORT"))
-      return (
-        <span className="px-3 py-1 bg-green-100 text-green-700 rounded font-semibold text-xs">
-          SHORTLISTED
-        </span>
-      );
-
-    if (s.includes("REJECT"))
-      return (
-        <span className="px-3 py-1 bg-red-100 text-red-700 rounded font-semibold text-xs">
-          REJECTED
-        </span>
-      );
-
-    return (
-      <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs">
-        {status}
-      </span>
-    );
-  };
-
+  // ---------- DERIVED DATA ----------
   const finalList = useMemo(() => {
     let list = [...applications];
 
@@ -327,525 +325,140 @@ export default function JobApplications() {
     return list;
   }, [applications, filter, searchValue, sortBy]);
 
+  const totals = useMemo(() => {
+    const upper = (s) => (s || "").toUpperCase();
+
+    const totalShortlisted = applications.filter((a) =>
+      upper(a.status).includes("SHORT")
+    ).length;
+
+    const totalRejected = applications.filter((a) =>
+      upper(a.status).includes("REJECT")
+    ).length;
+
+    const totalPending = applications.filter((a) => {
+      const s = upper(a.status);
+      return (
+        !s.includes("SHORT") &&
+        !s.includes("REJECT") &&
+        !s.includes("INVITED") &&
+        !s.includes("TERMINATED")
+      );
+    }).length;
+
+    const totalInvited = applications.filter((a) =>
+      upper(a.status).includes("INVITED")
+    ).length;
+
+    const totalTerminated = applications.filter((a) =>
+      upper(a.status).includes("TERMINATED")
+    ).length;
+
+    return {
+      totalShortlisted,
+      totalRejected,
+      totalPending,
+      totalInvited,
+      totalTerminated,
+    };
+  }, [applications]);
+
+  // ---------- SIMPLE STATES ----------
   if (loading)
-    return <div className="p-6 text-gray-600">Loading applications...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
-
-  const totalShortlisted = applications.filter((a) =>
-    (a.status || "").toUpperCase().includes("SHORT")
-  ).length;
-
-  const totalRejected = applications.filter((a) =>
-    (a.status || "").toUpperCase().includes("REJECT")
-  ).length;
-
-  const totalPending = applications.filter((a) => {
-    const s = (a.status || "").toUpperCase();
     return (
-      !s.includes("SHORT") &&
-      !s.includes("REJECT") &&
-      !s.includes("INVITED") &&
-      !s.includes("TERMINATED")
-    );
-  }).length;
-
-  const totalInvited = applications.filter((a) =>
-    (a.status || "").toUpperCase().includes("INVITED")
-  ).length;
-
-  const totalTerminated = applications.filter((a) =>
-    (a.status || "").toUpperCase().includes("TERMINATED")
-  ).length;
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">
-  Applications for:{" "}
-  <span className="text-sky-700">
-    {jobDetails?.jobTitle || jobDetails?.title || "—"}
-  </span>
-</h1>
-
-          <p className="text-gray-600 text-sm mt-1">
-            Job ID: {jobId} · Total Applicants:
-            <span className="font-semibold text-indigo-600">
-              {" "}
-              {applications.length}
-            </span>
-          </p>
-
-          {/* Tabs */}
-          <div className="mt-4 flex gap-3 flex-wrap">
-            <button
-              onClick={() => setFilter("ALL")}
-              className={`px-4 py-2 rounded ${
-                filter === "ALL" ? "bg-sky-600 text-white" : "bg-gray-200"
-              }`}
-            >
-              All ({applications.length})
-            </button>
-
-            <button
-              onClick={() => setFilter("SHORTLISTED")}
-              className={`px-4 py-2 rounded ${
-                filter === "SHORTLISTED"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Shortlisted ({totalShortlisted})
-            </button>
-
-            <button
-              onClick={() => setFilter("REJECTED")}
-              className={`px-4 py-2 rounded ${
-                filter === "REJECTED"
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Rejected ({totalRejected})
-            </button>
-
-            <button
-              onClick={() => setFilter("PENDING")}
-              className={`px-4 py-2 rounded ${
-                filter === "PENDING"
-                  ? "bg-yellow-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Pending ({totalPending})
-            </button>
-
-            <button
-              onClick={() => setFilter("INVITED")}
-              className={`px-4 py-2 rounded ${
-                filter === "INVITED"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Invited ({totalInvited})
-            </button>
-
-            <button
-              onClick={() => setFilter("TERMINATED")}
-              className={`px-4 py-2 rounded ${
-                filter === "TERMINATED"
-                  ? "bg-red-700 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Terminated ({totalTerminated})
-            </button>
-          </div>
-        </div>
-
-        {/* Controls + top-right bulk mail button */}
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-3">
-            <select
-              className="border px-3 py-2 rounded"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="NEWEST">Newest</option>
-              <option value="OLDEST">Oldest</option>
-              <option value="AZ">A–Z</option>
-              <option value="ZA">Z–A</option>
-            </select>
-
-            <input
-              type="text"
-              className="border px-3 py-2 rounded w-64"
-              placeholder="Search name, email, phone"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-
-            <button
-              onClick={() => navigate(-1)}
-              className="px-4 py-2 bg-gray-200 rounded"
-            >
-              Back
-            </button>
-          </div>
-
-          {(filter === "SHORTLISTED" || filter === "REJECTED") && (
-            <button
-              onClick={() => {
-                // bulk mail for shortlisted/rejected
-                setMailType(filter); // "SHORTLISTED" or "REJECTED"
-                setMailTargetApp(null); // bulk mode
-                setOpenMailBox(true);
-              }}
-              className={`px-4 py-2 rounded text-white flex items-center gap-2 ${
-                filter === "SHORTLISTED"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }`}
-            >
-              <Mail className="w-4 h-4" />
-              {filter === "SHORTLISTED"
-                ? "Send mail to all shortlisted"
-                : "Send mail to all rejected"}
-            </button>
-          )}
-        </div>
+      <div className="p-8 text-gray-600 text-sm">
+        Loading applications…
       </div>
+    );
 
-      {/* List */}
-      {finalList.length === 0 ? (
-        <div className="p-6 border rounded text-gray-600">
-          No applications found.
-        </div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {finalList.map((app) => {
-              const statusUpper = (app.status || "").toUpperCase();
+  if (error)
+    return (
+      <div className="p-8 text-red-600 text-sm">
+        {error}
+      </div>
+    );
 
-              const canSendIndividual =
-                (filter === "SHORTLISTED" && statusUpper.includes("SHORT")) ||
-                (filter === "REJECTED" && statusUpper.includes("REJECT"));
+  // ---------- RENDER ----------
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      <JobApplicationsHeader
+        jobDetails={jobDetails}
+        jobId={jobId}
+        applicationsCount={applications.length}
+        filter={filter}
+        setFilter={setFilter}
+        totals={totals}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        searchInput={searchInput}
+        setSearchInput={setSearchInput}
+        onBack={() => navigate(-1)}
+        onBulkMailClick={(type) => {
+          setMailType(type); // "SHORTLISTED" or "REJECTED"
+          setMailTargetApp(null);
+          setOpenMailBox(true);
+        }}
+      />
 
-              return (
-                <div
-                  key={app.id}
-                  className="p-4 border bg-white rounded shadow-sm flex items-center justify-between gap-4"
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <div className="font-medium">{app.fullName}</div>
-                      <div className="text-sm text-gray-500">{app.email}</div>
-                      <div className="text-sm text-gray-500">
-                        · {app.phoneNumber}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs text-gray-500">
-                        {fmtDate(app.applicationDate)}
-                      </div>
-                      {statusBadge(app.status)}
-                    </div>
-                  </div>
+      <ApplicationsTable
+        applications={finalList}
+        filter={filter}
+        statusBadge={statusBadge}
+        fmtDate={fmtDate}
+        onSelectApp={setSelectedApp}
+        onOpenMailForApp={(app, type) => {
+          setMailType(type); // "INVITED_SINGLE" | "TERMINATED_SINGLE"
+          setMailTargetApp(app);
+          setOpenMailBox(true);
+        }}
+      />
 
-                  <div className="flex items-center gap-2">
-                    {canSendIndividual && (
-                      <button
-                        onClick={() => {
-                          // from shortlisted tab → invite
-                          // from rejected tab → terminate
-                          if (statusUpper.includes("SHORT")) {
-                            setMailType("INVITED_SINGLE");
-                          } else if (statusUpper.includes("REJECT")) {
-                            setMailType("TERMINATED_SINGLE");
-                          } else {
-                            setMailType("");
-                          }
-                          setMailTargetApp(app);
-                          setOpenMailBox(true);
-                        }}
-                        className="flex items-center gap-1 px-3 py-1 border border-sky-600 text-sky-600 rounded hover:bg-sky-50 text-sm"
-                      >
-                        <Mail className="w-4 h-4" />
-                        Send mail
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => setSelectedApp(app)}
-                      className="flex items-center gap-1 px-3 py-1 border border-sky-600 text-sky-600 rounded hover:bg-sky-50 text-sm"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Slide-in panel */}
+      {/* Drawer - Applicant details */}
       {selectedApp && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setSelectedApp(null)}
-          />
-
-          <aside className="fixed right-0 top-0 h-full w-full md:w-[46%] lg:w-[34%] bg-white shadow-2xl z-50 overflow-y-auto rounded-l-2xl transform animate-slideIn">
-            {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-tl-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold backdrop-blur-md">
-                  {(selectedApp.fullName || "U")
-                    .split(" ")
-                    .map((x) => x[0])
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase()}
-                </div>
-
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold">
-                    {selectedApp.fullName}
-                  </h2>
-                  <p className="text-xs text-white/90">
-                    {selectedApp.email}
-                  </p>
-                  <p className="text-xs text-white/90">
-                    {selectedApp.phoneNumber}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setSelectedApp(null)}
-                  className="text-white text-xl hover:text-gray-200"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <p className="text-xs mt-2 opacity-90">
-                Applied: {fmtDate(selectedApp.applicationDate)}
-              </p>
-              <p className="text-xs opacity-90">
-                Position: <strong>{jobDetails?.title}</strong>
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-6">
-              {/* Status */}
-              <div className="bg-gray-50 p-4 rounded-xl border">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">
-                    Application Status
-                  </h3>
-                  {statusBadge(selectedApp.status)}
-                </div>
-
-                {!String(selectedApp.status)
-                  .toUpperCase()
-                  .includes("SHORT") &&
-                !String(selectedApp.status)
-                  .toUpperCase()
-                  .includes("REJECT") &&
-                !String(selectedApp.status)
-                  .toUpperCase()
-                  .includes("INVITED") &&
-                !String(selectedApp.status)
-                  .toUpperCase()
-                  .includes("TERMINATED") ? (
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={() =>
-                        setConfirmAction({
-                          app: selectedApp,
-                          shortlist: true,
-                        })
-                      }
-                      className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-                    >
-                      Shortlist
-                    </button>
-                    <button
-                      onClick={() =>
-                        setConfirmAction({
-                          app: selectedApp,
-                          shortlist: false,
-                        })
-                      }
-                      className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Resume */}
-              <div className="bg-gray-50 p-5 rounded-xl border">
-                <h3 className="text-lg font-semibold mb-3">Resume</h3>
-
-                {selectedApp.resumeUrl ? (
-                  <div className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border">
-                    <div className="font-medium text-gray-700">
-                      {selectedApp.fullName}'s Resume
-                    </div>
-
-                    <div className="flex gap-2">
-                      <a
-                        href={resolveUrl(selectedApp.resumeUrl)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-                      >
-                        Open
-                      </a>
-
-                      <button
-                        onClick={() =>
-                          downloadFile(
-                            selectedApp.resumeUrl,
-                            `${selectedApp.fullName}_resume.pdf`
-                          )
-                        }
-                        className="px-3 py-1.5 bg-gray-200 rounded hover:bg-gray-300"
-                      >
-                        Download
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-600">No resume uploaded.</p>
-                )}
-              </div>
-
-              {/* Additional Info */}
-              <div className="bg-gray-50 p-5 rounded-xl border">
-                <h3 className="text-lg font-semibold mb-2">
-                  Additional Info
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Email: <strong>{selectedApp.email}</strong>
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Mobile: <strong>{selectedApp.phoneNumber}</strong>
-                </p>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setSelectedApp(null)}
-                  className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </aside>
-        </>
+        <ApplicantDrawer
+          selectedApp={selectedApp}
+          jobDetails={jobDetails}
+          fmtDate={fmtDate}
+          statusBadge={statusBadge}
+          resolveUrl={resolveUrl}
+          downloadFile={downloadFile}
+          onClose={() => setSelectedApp(null)}
+          onShortlist={() =>
+            setConfirmAction({ app: selectedApp, shortlist: true })
+          }
+          onReject={() =>
+            setConfirmAction({ app: selectedApp, shortlist: false })
+          }
+        />
       )}
 
-      {/* Confirm Modal */}
+      {/* Confirm Shortlist / Reject */}
       {confirmAction && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/40 z-50"
-            onClick={() => setConfirmAction(null)}
-          />
-
-          <div className="fixed top-[25%] left-1/2 -translate-x-1/2 bg-white shadow-xl rounded p-6 z-50 w-full max-w-md">
-            <h3 className="text-lg font-semibold">
-              {confirmAction.shortlist
-                ? "Shortlist Applicant"
-                : "Reject Applicant"}
-            </h3>
-
-            <p className="mt-2 text-gray-700">
-              Are you sure you want to{" "}
-              <strong>
-                {confirmAction.shortlist ? "shortlist" : "reject"}
-              </strong>{" "}
-              <strong>{confirmAction.app.fullName}</strong>?
-            </p>
-
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                className="px-3 py-1 bg-gray-200 rounded"
-                onClick={() => setConfirmAction(null)}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="px-3 py-1 bg-blue-600 text-white rounded"
-                onClick={() =>
-                  updateStatus(
-                    confirmAction.app,
-                    confirmAction.shortlist
-                  )
-                }
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </>
+        <ConfirmDialog
+          confirmAction={confirmAction}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={(action) => updateStatus(action.app, action.shortlist)}
+          loadingId={updatingAppId}
+        />
       )}
 
-      {/* Email Modal */}
+      {/* Email modal */}
       {openMailBox && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/40 z-50"
-            onClick={() => {
-              setOpenMailBox(false);
-              setMailTargetApp(null);
-              setMailType("");
-            }}
-          />
-
-          <div className="fixed top-[20%] left-1/2 -translate-x-1/2 bg-white shadow-xl rounded p-6 z-50 w-full max-w-lg">
-            <h3 className="text-lg font-semibold mb-2">
-              {mailTargetApp
-                ? mailType === "INVITED_SINGLE"
-                  ? `Send Invite Email to ${mailTargetApp.fullName}`
-                  : mailType === "TERMINATED_SINGLE"
-                  ? `Send Rejection Email to ${mailTargetApp.fullName}`
-                  : `Send Email to ${mailTargetApp.fullName}`
-                : `Send Email to All ${
-                    mailType === "SHORTLISTED"
-                      ? "Shortlisted"
-                      : "Rejected"
-                  } Applicants`}
-            </h3>
-
-            <input
-              type="text"
-              placeholder="Email Subject"
-              value={mailSubject}
-              onChange={(e) => setMailSubject(e.target.value)}
-              className="w-full border p-2 mt-2 rounded"
-            />
-
-            <textarea
-              placeholder="Type your message..."
-              value={mailMessage}
-              onChange={(e) => setMailMessage(e.target.value)}
-              className="w-full border p-2 mt-3 rounded h-32"
-            />
-
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setOpenMailBox(false);
-                  setMailTargetApp(null);
-                  setMailType("");
-                }}
-                className="px-3 py-1 bg-gray-200 rounded"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={sendMail}
-                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
-                disabled={sendingMail}
-              >
-                {sendingMail ? "Sending..." : "Send"}
-              </button>
-            </div>
-          </div>
-        </>
+        <EmailModal
+          mailType={mailType}
+          mailTargetApp={mailTargetApp}
+          mailSubject={mailSubject}
+          setMailSubject={setMailSubject}
+          mailMessage={mailMessage}
+          setMailMessage={setMailMessage}
+          sendingMail={sendingMail}
+          onClose={() => {
+            setOpenMailBox(false);
+            setMailTargetApp(null);
+            setMailType("");
+          }}
+          onSend={sendMail}
+        />
       )}
     </div>
   );
