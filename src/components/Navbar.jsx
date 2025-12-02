@@ -3,7 +3,7 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Menu } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
-import { ShieldCheck, Users, User, LogIn, X } from "lucide-react";
+import { ShieldCheck, Users, User, LogIn, X, User2, UserCheck, UserCog } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/images/nebulytixLogo.jpg";
 
@@ -13,8 +13,9 @@ export default function Navbar() {
 
   const roleIcons = {
     admin: <ShieldCheck size={16} className="text-[#0D243C]" />,
-    hr: <Users size={16} className="text-[#0D243C]" />,
-    employee: <User size={16} className="text-[#0D243C]" />,
+    client: <UserCog size={16} className="text-[#0D243C]" />,
+    hr: <User size={16} className="text-[#0D243C]" />,
+    employee: <Users size={16} className="text-[#0D243C]" />,
   };
 
   return (
@@ -100,7 +101,7 @@ export default function Navbar() {
                     focus:outline-none"
                   >
                     <div className="py-1">
-                      {["admin", "hr", "employee"].map((role) => (
+                      {["admin","client" ,"hr", "employee"].map((role) => (
                         <Menu.Item key={role}>
                           {({ active }) => (
                             <button
