@@ -1,73 +1,80 @@
-// src/pages/LoginForm.jsx
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { login as apiLogin } from "../api/auth";
+import { useDispatch, useSelector } from "react-redux";
+import { setAuthData } from "../store/authSlice";
 import Navbar from "../components/Navbar";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginForm() {
-  const { role: routeRole } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [role, setRole] = useState(routeRole || "employee");
-  const [form, setForm] = useState({ username: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { accessToken, userDashboard } = useSelector((s) => s.auth);
+
+  const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(null); // FIXED
+  const [loading, setLoading] = useState(false);
 
+  // Redirect if already logged in
   useEffect(() => {
-    if (routeRole) {
-      setRole(routeRole);
+    if (accessToken && userDashboard) {
+      redirectToDashboard(userDashboard);
     }
-  }, [routeRole]);
+  }, []);
+
+  function redirectToDashboard(dashboard) {
+    switch (dashboard) {
+      case "ADMIN_DASHBOARD":
+        navigate("/admin");
+        break;
+      case "HR_DASHBOARD":
+        navigate("/hr");
+        break;
+      case "EMPLOYEE_DASHBOARD":
+        navigate("/employee");
+        break;
+      case "MANAGER_DASHBOARD":
+        navigate("/manager");
+        break;
+      case "CLIENT_DASHBOARD":
+        navigate("/client");
+        break;
+      default:
+        navigate("/");
+    }
+  }
 
   function handleInput(e) {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm({ ...form, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
 
-    if (!form.username.trim() || !form.password) {
-      setError("Please enter username and password.");
+    if (!form.email || !form.password) {
+      setError("Enter email and password.");
       return;
     }
 
-    setLoading(true);
     try {
-      const data = await apiLogin(role, {
-        email: form.username,
-        password: form.password,
-        loginRole: role,
-      });
+      setLoading(true);
 
-      console.log("Login response data:", data);
+      const data = await apiLogin(form);
 
-      // Save relevant info in role-specific key
-      const actualRole = data.loginRole ?? role;
-      localStorage.setItem("neb_role", actualRole);
-      localStorage.setItem("neb_token", data.token ?? "demo-token");
+      dispatch(
+        setAuthData({
+          accessToken: data.accessToken,
+          dashboard: data.dashboard,
+          roles: data.roles,
+        })
+      );
 
-      if (actualRole === "admin") {
-        localStorage.setItem("neb_admin_info", JSON.stringify(data));
-        navigate("/admin", { state: { admin: data } });
-      } else if (actualRole === "hr") {
-        localStorage.setItem("neb_hr_info", JSON.stringify(data));
-        navigate("/hr", { state: { hr: data } });
-      } else {
-        // employee or default
-        localStorage.setItem("neb_employee_info", JSON.stringify(data));
-        navigate("/employee", { state: { employee: data } });
-      }
+      redirectToDashboard(data.dashboard);
     } catch (err) {
-      console.error("Login error:", err);
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Login failed — check credentials and backend.";
-      setError(msg);
+      setError(err?.response?.data?.message || "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -76,91 +83,64 @@ export default function LoginForm() {
   return (
     <div>
       <Navbar />
+
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md bg-white border rounded-lg shadow p-6">
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold">Sign in to Nebulytix</h2>
-            
-          </div>
+          <h2 className="text-2xl font-bold text-center">Sign in</h2>
 
-          {!routeRole && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border rounded"
-              >
-                <option value="admin">Admin</option>
-                <option value="client">Client</option>
-                <option value="hr">HR</option>
-                <option value="employee">Employee</option>
-              </select>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
+              <label className="block text-sm font-medium">Email</label>
               <input
-                name="username"
-                value={form.username}
+                name="email"
+                type="email"
+                value={form.email}
                 onChange={handleInput}
-                className="mt-1 block w-full px-3 py-2 border rounded"
-                placeholder={
-                  role === "admin" ? "admin username" : "your username or email"
-                }
+                className="w-full border px-3 py-2 rounded mt-1"
                 required
               />
             </div>
 
-          <div>
-  <label className="block text-sm font-medium text-gray-700">
-    Password
-  </label>
+            {/* Password */}
+            <div className="relative">
+              <label className="block text-sm font-medium">Password</label>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleInput}
+                className="w-full border px-3 py-2 rounded mt-1"
+                required
+              />
 
-  <input
-    name="password"
-    type="password"
-    value={form.password}
-    onChange={handleInput}
-    className="mt-1 block w-full px-3 py-2 border rounded"
-    placeholder="Enter your password"
-    required
-  />
-</div>
-
-
-           
-
-            {error && <div className="text-sm text-red-600">{error}</div>}
-
-            <div className="flex items-center justify-between">
               <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-sky-600 text-white rounded disabled:opacity-60"
+                type="button"
+                className="absolute right-3 top-9"
+                onClick={() => setShowPassword((v) => !v)}
               >
-                {loading
-                  ? "Signing in..."
-                  : `Sign in as ${role?.toUpperCase()}`}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
 
-              <Link to="/" className="text-sm text-gray-600 hover:underline">
-                Back to home
-              </Link>
+              <div className="text-right mt-1">
+                <a href="/forgot-password" className="text-sm text-blue-600">
+                  Forgot Password?
+                </a>
+              </div>
             </div>
-          </form>
 
-          <div className="mt-4 text-xs text-gray-500">
-            Tip: you can open specific role login directly at{" "}
-            <code>/login/admin</code>, <code>/login/hr</code>, or{" "}
-            <code>/login/employee</code>.
-          </div>
+            {/* Error message */}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-2 rounded"
+              disabled={loading}
+            >
+              {loading ? "Signing in..." : "Login"}
+            </button>
+          </form>
         </div>
       </div>
     </div>

@@ -1,183 +1,100 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-import HrInfo from "../components/hr/HrInfo";
-import AddHrForm from "../components/admin/AddHrForm";
-import AddJobForm from "../components/hr/AddJobForm";
-import JobList from "../components/hr/JobList";
-import EmployeeList from "../components/hr/EmployeeList";
-
-import axios from "axios";
-import { BACKEND_BASE_URL } from "../api/config";
-
-import {
-  UserPlus,
-  Briefcase,
-  LogOut,
-  FilePlus,
-  FileText,
-  Loader2,
-  FileStack,
-  Menu,
-  X,
-} from "lucide-react";
+//src/pages/HrDashboard.jsx
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchHrProfile } from "../store/hrSlice";
+import DashboardLayout from "../layout/DashboardLayout";
 
 export default function HrDashboard() {
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { profile, loading, error } = useSelector((s) => s.hr);
 
-  const [showAddEmployee, setShowAddEmployee] = useState(false);
-  const [showAddJob, setShowAddJob] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [dailyReportOpen, setDailyReportOpen] = useState(false);
-  const [loadingReport, setLoadingReport] = useState(false);
-
-  const triggerRefresh = () => setRefreshKey((k) => k + 1);
-
-  const handleLogout = () => {
-    localStorage.removeItem("neb_hr_info");
-    localStorage.removeItem("neb_token");
-    localStorage.removeItem("neb_role");
-    navigate("/");
-  };
-
-  const handleGenerateDailyReport = async () => {
-    setLoadingReport(true);
-    try {
-      const res = await axios.post(`${BACKEND_BASE_URL}/hr/dailyReport/generate`);
-      alert(res.data?.data ? "Daily report generated!" : "Failed to generate.");
-    } catch (err) {
-      alert("Error generating report: " + err.message);
-    }
-    setLoadingReport(false);
-  };
+  useEffect(() => {
+    dispatch(fetchHrProfile());
+  }, []);
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <>
+      <div className="p-6 bg-gray-100 min-h-screen">
+        <h1 className="text-3xl font-bold mb-6 text-[#0D243C]">HR Dashboard</h1>
 
-      {/* SIDEBAR */}
-      <aside
-        className={`
-          fixed top-0 left-0 h-full
-          ${sidebarOpen ? "w-64" : "w-20"}
-          bg-white border-r shadow-md
-          transition-all duration-300
-          overflow-y-auto
-          z-20
-        `}
-      >
-        <div className="flex items-center justify-between p-5 border-b">
-          {sidebarOpen && <h2 className="text-xl font-semibold text-gray-800">HR Panel</h2>}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded hover:bg-gray-100">
-            {sidebarOpen ? <X /> : <Menu />}
-          </button>
-        </div>
-
-        <nav className="p-4 space-y-2">
-
-  {/* Add Employee */}
-  <button onClick={() => setShowAddEmployee(true)} className="nav-btn">
-    <UserPlus className="icon text-sky-600" />
-    {sidebarOpen && "Add Employee"}
-  </button>
-
-  {/* Add Job */}
-  <button onClick={() => setShowAddJob(true)} className="nav-btn">
-    <Briefcase className="icon text-purple-600" />
-    {sidebarOpen && "Add Job"}
-  </button>
-
-  {/* Daily Report */}
-  <button onClick={() => setDailyReportOpen(!dailyReportOpen)} className="nav-btn justify-between">
-    <span className="flex items-center gap-3">
-      <FileStack className="icon text-blue-600" />
-      {sidebarOpen && "Daily Report"}
-    </span>
-    {sidebarOpen && (
-      <span className="text-xs text-gray-600">{dailyReportOpen ? "▲" : "▼"}</span>
-    )}
-  </button>
-
-  {sidebarOpen && dailyReportOpen && (
-    <div className="ml-10 mt-2 space-y-2">
-      <button onClick={handleGenerateDailyReport} disabled={loadingReport} className="sub-nav-btn">
-        {loadingReport ? (
-          <Loader2 className="animate-spin w-4 h-4 text-green-600" />
-        ) : (
-          <FilePlus className="w-4 h-4 text-green-600" />
+        {/* LOADING */}
+        {loading && (
+          <div className="text-center text-gray-600 text-lg">
+            Loading HR Profile...
+          </div>
         )}
-        {loadingReport ? "Generating..." : "Generate"}
-      </button>
 
-      <button onClick={() => navigate("/view-daily-report")} className="sub-nav-btn">
-        <FileText className="w-4 h-4 text-purple-600" />
-        View Reports
-      </button>
-    </div>
-  )}
+        {/* ERROR */}
+        {error && (
+          <div className="text-red-600 text-md bg-red-50 p-3 rounded border border-red-200">
+            {error}
+          </div>
+        )}
 
-  {/* Logout */}
-  <button onClick={handleLogout} className="nav-btn text-red-600 hover:bg-red-50">
-    <LogOut className="icon text-red-600" />
-    {sidebarOpen && "Logout"}
-  </button>
+        {/* PROFILE CARD */}
+        {profile && (
+          <div className="bg-white shadow-md rounded-lg p-6 border">
+            <h2 className="text-xl font-semibold text-[#0D243C] mb-4">
+              Profile Overview
+            </h2>
 
-</nav>
+            <div className="grid md:grid-cols-2 gap-4 text-gray-700">
+              <p>
+                <span className="font-semibold">Name:</span> {profile.firstName}{" "}
+                {profile.lastName}
+              </p>
 
-      </aside>
+              <p>
+                <span className="font-semibold">Email:</span> {profile.email}
+              </p>
 
-      {/* MAIN CONTENT */}
-      <main
-        className={`
-          flex-1 min-h-screen
-          transition-all duration-300
-          ${sidebarOpen ? "ml-64" : "ml-20"}
-        `}
-      >
-        <div className="max-w-6xl mx-auto p-10">
+              <p>
+                <span className="font-semibold">Mobile:</span> {profile.mobile}
+              </p>
 
-          <h1 className="text-3xl font-bold text-sky-700 mb-10">HR Dashboard</h1>
+              <p>
+                <span className="font-semibold">Department:</span>{" "}
+                {profile.department}
+              </p>
 
-          {/* HR Info */}
-          <div className="card mb-10">
-            <HrInfo role="hr" refreshKey={refreshKey} />
+              <p>
+                <span className="font-semibold">Designation:</span>{" "}
+                {profile.designation}
+              </p>
+
+              <p>
+                <span className="font-semibold">Gender:</span> {profile.gender}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* FUTURE MODULE CARDS */}
+        <div className="grid md:grid-cols-3 gap-6 mt-10">
+          <div className="bg-white p-6 shadow rounded-lg hover:shadow-lg cursor-pointer transition border">
+            <h3 className="text-lg font-semibold text-[#0D243C]">Employees</h3>
+            <p className="text-gray-500 text-sm mt-2">
+              Manage employees, profiles & attendance.
+            </p>
           </div>
 
-          {/* Employees */}
-          <div className="card mb-10">
-            <h2 className="section-title"></h2>
-            <EmployeeList refreshKey={refreshKey} onActionComplete={triggerRefresh} />
+          <div className="bg-white p-6 shadow rounded-lg hover:shadow-lg cursor-pointer transition border">
+            <h3 className="text-lg font-semibold text-[#0D243C]">
+              Recruitment
+            </h3>
+            <p className="text-gray-500 text-sm mt-2">
+              Track job posts, applicants & selection.
+            </p>
           </div>
 
-          {/* Jobs */}
-          <div className="card mb-10">
-            <h2 className="section-title">Job Posts</h2>
-            <JobList refreshKey={refreshKey} />
+          <div className="bg-white p-6 shadow rounded-lg hover:shadow-lg cursor-pointer transition border">
+            <h3 className="text-lg font-semibold text-[#0D243C]">Reports</h3>
+            <p className="text-gray-500 text-sm mt-2">
+              View attendance, payroll & activity reports.
+            </p>
           </div>
         </div>
-      </main>
-
-      {/* MODALS */}
-      {showAddEmployee && (
-        <AddHrForm
-          mode="hr"
-          onClose={() => setShowAddEmployee(false)}
-          onAdded={() => {
-            setShowAddEmployee(false);
-            triggerRefresh();
-          }}
-        />
-      )}
-
-      {showAddJob && (
-        <AddJobForm
-          onClose={() => setShowAddJob(false)}
-          onAdded={() => {
-            setShowAddJob(false);
-            triggerRefresh();
-          }}
-        />
-      )}
-    </div>
+      </div>
+    </>
   );
 }
