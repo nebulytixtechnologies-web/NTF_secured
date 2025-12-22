@@ -1,7 +1,6 @@
-//src/pages/admin/UserLists.jsx
 import { useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
 
 import {
   fetchAdmins,
@@ -12,29 +11,31 @@ import {
 } from "../../store/userListsSlice";
 
 import AdminList from "../../components/userLists/AdminList";
-import EmployeeList from "../../components/userLists/EmployeeList";
 import ManagerList from "../../components/userLists/ManagerList";
 import HrList from "../../components/userLists/HrList";
+import EmployeeList from "../../components/userLists/EmployeeList";
 import ClientList from "../../components/userLists/ClientList";
 
+/* =======================
+   TABS CONFIG
+======================= */
 const tabs = [
-  { label: "Admins", value: "admins" },
-  { label: "Managers", value: "managers" },
-  { label: "HRs", value: "hrs" },
-  { label: "Employees", value: "employees" },
-  { label: "Clients", value: "clients" },
+  { label: "ADMINS", type: "admins" },
+  { label: "MANAGERS", type: "managers" },
+  { label: "HRS", type: "hrs" },
+  { label: "EMPLOYEES", type: "employees" },
+  { label: "CLIENTS", type: "clients" },
 ];
 
 export default function UserLists() {
   const dispatch = useDispatch();
-  const [params, setParams] = useSearchParams();
+  const { search } = useLocation();
+  const activeType = new URLSearchParams(search).get("type") || "admins";
 
-  const activeType = params.get("type") || "admins";
-
-  const { loading, error } = useSelector((s) => s.userLists);
+  const { loading, error } = useSelector((state) => state.userLists);
 
   /* =======================
-     FETCH BASED ON TAB
+     FETCH USERS
   ======================= */
   useEffect(() => {
     switch (activeType) {
@@ -55,6 +56,9 @@ export default function UserLists() {
     }
   }, [activeType, dispatch]);
 
+  /* =======================
+     RENDER LIST
+  ======================= */
   const renderList = () => {
     switch (activeType) {
       case "managers":
@@ -72,34 +76,78 @@ export default function UserLists() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">User Lists</h1>
+      {/* =======================
+          TOP ADMIN NAVBAR
+      ======================= */}
+      <div
+        style={{
+          background: "linear-gradient(180deg, #0b1f33, #0d243c)",
+          borderBottom: "1px solid #123456",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: "44px",
+            padding: "0 24px",
+            gap: "32px",
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = activeType === tab.type;
 
-      {/* TABS */}
-      <div className="flex gap-3 flex-wrap">
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setParams({ type: t.value })}
-            className={`px-4 py-2 rounded text-sm font-medium border ${
-              activeType === t.value
-                ? "bg-[#0D243C] text-white"
-                : "bg-white hover:bg-gray-100"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+            return (
+              <NavLink
+                key={tab.type}
+                to={`?type=${tab.type}`} // ✅ Fixed
+                style={{
+                  position: "relative",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: isActive ? "#ffffff" : "#b9c3cf",
+                  textDecoration: "none",
+                  padding: "4px 0",
+                }}
+              >
+                {tab.label}
+
+                {/* Pink triangle indicator */}
+                {isActive && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      bottom: "-8px",
+                      transform: "translateX(-50%)",
+                      width: 0,
+                      height: 0,
+                      borderLeft: "6px solid transparent",
+                      borderRight: "6px solid transparent",
+                      borderTop: "6px solid #ec4899",
+                    }}
+                  />
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
       </div>
 
-      {/* LOADING */}
-      {loading && <p className="text-gray-500">Loading users...</p>}
+      {/* =======================
+          STATES
+      ======================= */}
+      {loading && <p className="text-gray-500 px-6">Loading users...</p>}
 
-      {/* ERROR */}
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="text-red-600 px-6">{error}</p>}
 
-      {/* LIST */}
+      {/* =======================
+          USER LIST
+      ======================= */}
       {!loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {renderList()}
         </div>
       )}
