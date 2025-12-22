@@ -7,6 +7,7 @@ import managerReducer from "./managerSlice";
 import clientReducer from "./clientSlice";
 import userManagementReducer from "./userManagementSlice";
 import userListsReducer from "./userListsSlice";
+import hrEmployeeReducer from "./hrEmployeeSlice";
 
 
 import storage from "redux-persist/lib/storage";
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
   client: clientReducer,
   userManagement: userManagementReducer,
   userLists: userListsReducer,
+  hrEmployee: hrEmployeeReducer,
 });
 
 

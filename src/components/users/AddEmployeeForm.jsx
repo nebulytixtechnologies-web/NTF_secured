@@ -1,34 +1,30 @@
+//src/components/users/AddEmployeeForm.jsx
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useRef } from "react";
 import { addEmployee } from "../../store/userManagementSlice";
+import { hrAddEmployee } from "../../store/hrEmployeeSlice";
 import SuccessModal from "../common/SuccessModal";
 
-/* ROLE MAPPING */
-const getRolesByDesignation = (role) => {
-  switch (role.toUpperCase()) {
-    case "MANAGER":
-      return ["ROLE_MANAGER", "ROLE_HR", "ROLE_EMPLOYEE"];
-    case "HR":
-      return ["ROLE_HR", "ROLE_EMPLOYEE"];
-    default:
-      return ["ROLE_EMPLOYEE"];
-  }
+/* ================= INPUT RESTRICTIONS ================= */
+const onlyLetters = (e) => {
+  e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
 };
 
-/* INPUT RESTRICTIONS */
-const onlyLetters = (e) =>
-  (e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, ""));
-const onlyNumbers = (e) =>
-  (e.target.value = e.target.value.replace(/[^0-9]/g, ""));
+const onlyNumbers = (e) => {
+  e.target.value = e.target.value.replace(/[^0-9]/g, "");
+};
 
-export default function AddEmployeeForm({ role }) {
+export default function AddEmployeeForm({ role, mode = "ADMIN" }) {
   const dispatch = useDispatch();
-  const { loading } = useSelector((s) => s.userManagement);
+
+  // ✅ SAFE SELECTOR (prevents undefined crash)
+  const loading = useSelector((s) =>
+    mode === "HR" ? s.hrEmployee?.loading : s.userManagement?.loading
+  );
 
   const [showSuccess, setShowSuccess] = useState(false);
-
   const formRef = useRef(null);
-  const emailRef = useRef(null); // ✅ for auto-focus
+  const emailRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +33,7 @@ export default function AddEmployeeForm({ role }) {
       userDto: {
         email: e.target.email.value,
         password: e.target.password.value,
-        roles: getRolesByDesignation(role),
+        roles: role === "Employee" ? ["ROLE_EMPLOYEE"] : [],
       },
       empReq: {
         firstName: e.target.firstName.value,
@@ -55,14 +51,16 @@ export default function AddEmployeeForm({ role }) {
     };
 
     try {
-      await dispatch(addEmployee(payload)).unwrap();
+      const action =
+        mode === "HR" ? hrAddEmployee(payload) : addEmployee(payload);
+
+      await dispatch(action).unwrap();
       setShowSuccess(true);
-    } catch (err) {
+    } catch {
       alert("Failed to add employee");
     }
   };
 
-  // ✅ Keka behavior: reset + focus first field
   const handleOk = () => {
     setShowSuccess(false);
     formRef.current.reset();
@@ -71,8 +69,8 @@ export default function AddEmployeeForm({ role }) {
 
   return (
     <>
-      {/* ✅ WIDTH CONTROL (VERY IMPORTANT) */}
-      <div className="max-w-[980px]">
+      {/* ✅ CENTERED & VISIBLE */}
+      <div className="max-w-[980px] mx-auto">
         <form
           ref={formRef}
           onSubmit={handleSubmit}
@@ -204,7 +202,7 @@ export default function AddEmployeeForm({ role }) {
         </form>
       </div>
 
-      {/* SUCCESS POPUP */}
+      {/* SUCCESS MODAL */}
       <SuccessModal
         open={showSuccess}
         message={`${role} added successfully`}
@@ -214,13 +212,12 @@ export default function AddEmployeeForm({ role }) {
   );
 }
 
-/* ================= SMALL REUSABLE PARTS ================= */
+/* ================= REUSABLE UI ================= */
 
 function Section({ title, children }) {
   return (
     <div>
       <h4 className="text-[13px] font-semibold text-gray-800 tracking-wide uppercase">
-
         {title}
       </h4>
       <div className="border-b border-gray-200 mt-2 mb-6" />

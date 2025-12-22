@@ -12,14 +12,13 @@ import About from "./pages/About";
 import AdminLayout from "./layout/admin/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
+import UserLists from "./pages/admin/UserLists";
+import ClientDetails from "./pages/admin/ClientDetails";
 
 // Admin forms
 import AddAdminForm from "./components/users/AddAdminForm";
 import AddClientForm from "./components/users/AddClientForm";
 import AddEmployeeForm from "./components/users/AddEmployeeForm";
-
-// Users list
-import UserLists from "./pages/admin/UserLists";
 
 // HR
 import HrLayout from "./layout/hr/HrLayout";
@@ -61,24 +60,28 @@ export default function App() {
         }
       >
         <Route index element={<AdminDashboard />} />
-        <Route path="user-lists" element={<UserLists />} />
 
-        {/* USER MANAGEMENT */}
+        <Route path="user-lists" element={<UserLists />} />
+        <Route
+          path="user-lists/clients/:clientId"
+          element={<ClientDetails />}
+        />
+
         <Route path="users" element={<UserManagement />}>
-          {/* ADD USERS */}
           <Route path="add-admin" element={<AddAdminForm />} />
           <Route
             path="add-manager"
-            element={<AddEmployeeForm role="Manager" />}
+            element={<AddEmployeeForm role="Manager" mode="ADMIN" />}
           />
-          <Route path="add-hr" element={<AddEmployeeForm role="HR" />} />
+          <Route
+            path="add-hr"
+            element={<AddEmployeeForm role="HR" mode="ADMIN" />}
+          />
           <Route
             path="add-employee"
-            element={<AddEmployeeForm role="Employee" />}
+            element={<AddEmployeeForm role="Employee" mode="ADMIN" />}
           />
           <Route path="add-client" element={<AddClientForm />} />
-
-          {/* USERS LIST */}
         </Route>
       </Route>
 
@@ -92,6 +95,12 @@ export default function App() {
         }
       >
         <Route index element={<HrDashboard />} />
+
+        {/* HR EMPLOYEE ACTIONS */}
+        <Route
+          path="employees/add"
+          element={<AddEmployeeForm role="Employee" mode="HR" />}
+        />
       </Route>
 
       {/* ================= MANAGER ================= */}
