@@ -12,6 +12,7 @@ import projectReducer from "./projectSlice";
 import salaryReducer from "./salarySlice";
 import bankReducer from "./bankSlice";
 import attendanceReducer from "./attendanceSlice";
+import employeeProjectReducer from "./employeeProjectSlice";
 
 import storage from "redux-persist/lib/storage";
 import {
@@ -28,7 +29,7 @@ import {
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth"], // ✅ only auth is persisted
+  whitelist: ["auth"], 
 };
 
 const rootReducer = combineReducers({
@@ -44,7 +45,8 @@ const rootReducer = combineReducers({
   project: projectReducer,
   salary: salaryReducer,
   bank: bankReducer,
-  attendance: attendanceReducer, // ✅ REQUIRED
+  attendance: attendanceReducer, 
+  employeeProject: employeeProjectReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

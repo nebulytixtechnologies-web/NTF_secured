@@ -24,6 +24,7 @@ import AddEmployeeBankDetails from "./pages/admin/AddEmployeeBankDetails";
 import AddEmployeeSalaryDetails from "./pages/admin/AddEmployeeSalaryDetails";
 import EmployeeSalaryDetails from "./pages/admin/EmployeeSalaryDetails";
 import EmployeeBankDetails from "./pages/admin/EmployeeBankDetails";
+import EmployeeProjects from "./pages/admin/EmployeeProjects";
 
 // Admin forms
 import AddAdminForm from "./components/users/AddAdminForm";
@@ -101,8 +102,16 @@ export default function App() {
           element={<AddEmployeeBankDetails />}
         />
         <Route
+          path="user-lists/employees/:employeeId/update-bank-details"
+          element={<AddEmployeeBankDetails />}
+        />
+        <Route
           path="user-lists/employees/:employeeId/add-salary-details"
           element={<AddEmployeeSalaryDetails />}
+        />
+        <Route
+          path="user-lists/employees/:employeeId/projects"
+          element={<EmployeeProjects />}
         />
         //......................
         {/* EMPLOYEE TABS */}

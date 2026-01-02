@@ -17,6 +17,10 @@ export default function EmployeeActionTabs() {
       label: "BANK",
       path: `/admin/user-lists/employees/${employeeId}/bank`,
     },
+    {
+      label: "PROJECTS",
+      path: `/admin/user-lists/employees/${employeeId}/projects`,
+    },
   ];
 
   return (

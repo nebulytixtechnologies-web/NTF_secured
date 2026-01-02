@@ -1,21 +1,32 @@
 // src/pages/admin/AddEmployeeBankDetails.jsx
 import { useParams, useNavigate } from "react-router-dom";
-import { useRef } from "react";
-// later you can connect redux/api
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import {
+  addEmployeeBank,
+  updateEmployeeBank,
+  fetchEmployeeBank,
+} from "../../store/bankSlice";
 
 export default function AddEmployeeBankDetails() {
   const { employeeId } = useParams();
   const navigate = useNavigate();
-  const formRef = useRef(null);
+  const dispatch = useDispatch();
+
+  const { bank } = useSelector((s) => s.bank);
+  const isEdit = Boolean(bank);
+
+  useEffect(() => {
+    dispatch(fetchEmployeeBank(employeeId));
+  }, [employeeId, dispatch]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     const payload = {
-      employeeId: Number(employeeId),
+      bankName: e.target.bankName.value,
       bankAccountNumber: e.target.bankAccountNumber.value,
       ifscCode: e.target.ifscCode.value,
-      bankName: e.target.bankName.value,
       pfNumber: e.target.pfNumber.value,
       panNumber: e.target.panNumber.value,
       uanNumber: e.target.uanNumber.value,
@@ -23,118 +34,107 @@ export default function AddEmployeeBankDetails() {
       esiNumber: e.target.esiNumber.value,
     };
 
-    console.log("Employee Bank Details Payload:", payload);
-
-    // later:
-    // dispatch(addEmployeeBankDetails(payload));
+    if (isEdit) {
+      dispatch(updateEmployeeBank({ employeeId, payload }));
+    } else {
+      dispatch(addEmployeeBank({ employeeId, payload }));
+    }
 
     navigate(-1);
   };
 
   return (
     <div className="p-6 max-w-4xl space-y-6">
-      {/* HEADER */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">
-          Add Bank & Compliance Details
+          {isEdit ? "Update Bank Details" : "Add Bank Details"}
         </h2>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-blue-600 hover:underline"
-        >
+        <button onClick={() => navigate(-1)} className="text-sm text-blue-600">
           ← Back
         </button>
       </div>
 
-      {/* FORM */}
       <form
-        ref={formRef}
         onSubmit={handleSubmit}
         className="bg-white p-6 rounded-lg shadow space-y-6"
       >
-        {/* ================= BANK DETAILS ================= */}
         <Section title="Bank Details">
           <div className="grid grid-cols-2 gap-6">
-            <Input label="Bank Name *">
+            <Input label="Bank Name">
               <input
                 name="bankName"
+                defaultValue={bank?.bankName || ""}
                 required
                 className="input-base"
-                placeholder="HDFC Bank"
               />
             </Input>
 
-            <Input label="Bank Account Number *">
+            <Input label="Account Number">
               <input
                 name="bankAccountNumber"
+                defaultValue={bank?.bankAccountNumber || ""}
                 required
                 className="input-base"
-                placeholder="XXXXXXXXXX"
               />
             </Input>
 
-            <Input label="IFSC Code *">
+            <Input label="IFSC Code">
               <input
                 name="ifscCode"
+                defaultValue={bank?.ifscCode || ""}
                 required
                 className="input-base"
-                placeholder="HDFC0000123"
               />
             </Input>
           </div>
         </Section>
 
-        {/* ================= COMPLIANCE DETAILS ================= */}
         <Section title="Compliance Details">
           <div className="grid grid-cols-2 gap-6">
             <Input label="PF Number">
               <input
                 name="pfNumber"
+                defaultValue={bank?.pfNumber || ""}
                 className="input-base"
-                placeholder="PFXXXXXXXX"
               />
             </Input>
 
             <Input label="PAN Number">
               <input
                 name="panNumber"
+                defaultValue={bank?.panNumber || ""}
                 className="input-base"
-                placeholder="ABCDE1234F"
               />
             </Input>
 
             <Input label="UAN Number">
               <input
                 name="uanNumber"
+                defaultValue={bank?.uanNumber || ""}
                 className="input-base"
-                placeholder="XXXXXXXXXXXX"
               />
             </Input>
 
             <Input label="EPS Number">
               <input
                 name="epsNumber"
+                defaultValue={bank?.epsNumber || ""}
                 className="input-base"
-                placeholder="EPSXXXXXXXX"
               />
             </Input>
 
             <Input label="ESI Number">
               <input
                 name="esiNumber"
+                defaultValue={bank?.esiNumber || ""}
                 className="input-base"
-                placeholder="ESIXXXXXXXX"
               />
             </Input>
           </div>
         </Section>
 
-        {/* ACTION */}
         <div className="flex justify-end pt-4 border-t">
-          <button
-            type="submit"
-            className="px-6 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
-          >
+          <button className="px-6 py-2 bg-pink-600 text-white rounded">
             Save Bank Details
           </button>
         </div>
@@ -143,14 +143,12 @@ export default function AddEmployeeBankDetails() {
   );
 }
 
-/* ================= REUSABLE UI ================= */
+/* ================= UI ================= */
 
 function Section({ title, children }) {
   return (
     <div>
-      <h4 className="text-[13px] font-semibold text-gray-800 uppercase">
-        {title}
-      </h4>
+      <h4 className="text-[13px] font-semibold uppercase">{title}</h4>
       <div className="border-b mt-2 mb-6" />
       {children}
     </div>
@@ -159,8 +157,8 @@ function Section({ title, children }) {
 
 function Input({ label, children }) {
   return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+    <div>
+      <label className="text-sm font-medium">{label}</label>
       {children}
     </div>
   );
